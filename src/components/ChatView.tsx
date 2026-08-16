@@ -4,11 +4,18 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Phone, Video, Send, Loader2,
   Edit2, Trash2, X, Check, Users, Info, Shield, Lock,
-  Paperclip, Image as ImageIcon, Film, Smile,
+  Paperclip, Image as ImageIcon, Film, Smile, FileText,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
-type MessageType = "text" | "photo" | "video" | "gif" | "sticker";
+type MessageType = "text" | "photo" | "video" | "gif" | "sticker" | "document";
+
+interface DocumentPayload {
+  name: string;
+  mimeType: string;
+  size: number;
+  dataUrl: string;
+}
 
 interface User {
   id: string;
@@ -75,6 +82,59 @@ export default function ChatView({
   const videoInputRef = useRef<HTMLInputElement>(null);
   const gifInputRef = useRef<HTMLInputElement>(null);
   const stickerInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+
+  const classifyKeyboardMessage = (value: string): { content: string; messageType: MessageType } => {
+    const content = value.trim();
+    const lower = content.toLowerCase();
+
+    if (lower.startsWith("data:video/")) return { content, messageType: "video" };
+    if (lower.startsWith("data:image/gif")) return { content, messageType: "gif" };
+    if (lower.startsWith("data:image/")) return { content, messageType: "photo" };
+
+    const isUrl = /^https?:\/\/\S+$/i.test(content);
+    if (!isUrl) return { content, messageType: "text" };
+
+    if (lower.includes("giphy.com") || lower.includes("tenor.com") || /\.gif([?#].*)?$/.test(lower)) {
+      return { content, messageType: "gif" };
+    }
+
+    if (lower.includes("sticker") || /\.webp([?#].*)?$/.test(lower)) {
+      return { content, messageType: "sticker" };
+    }
+
+    if (/\.(png|jpe?g|webp|avif|bmp|svg)([?#].*)?$/.test(lower)) {
+      return { content, messageType: "photo" };
+    }
+
+    if (/\.(mp4|webm|mov|m4v|ogg)([?#].*)?$/.test(lower)) {
+      return { content, messageType: "video" };
+    }
+
+    return { content, messageType: "text" };
+  };
+
+  const parseDocumentPayload = (content: string): DocumentPayload | null => {
+    try {
+      const parsed = JSON.parse(content) as Partial<DocumentPayload>;
+      if (
+        typeof parsed?.name === "string" &&
+        typeof parsed?.mimeType === "string" &&
+        typeof parsed?.size === "number" &&
+        typeof parsed?.dataUrl === "string"
+      ) {
+        return {
+          name: parsed.name,
+          mimeType: parsed.mimeType,
+          size: parsed.size,
+          dataUrl: parsed.dataUrl,
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -141,7 +201,7 @@ export default function ChatView({
     e.preventDefault();
     if (!newMessage.trim() || sending) return;
 
-    const content = newMessage.trim();
+    const { content, messageType } = classifyKeyboardMessage(newMessage);
     setNewMessage("");
     setSending(true);
 
@@ -151,7 +211,7 @@ export default function ChatView({
       encryptedContent: null,
       iv: null,
       encryptionVersion: 0,
-      messageType: "text",
+      messageType,
       isEdited: false,
       isDeleted: false,
       createdAt: new Date().toISOString(),
@@ -164,29 +224,34 @@ export default function ChatView({
     setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
-      // Encrypt client-side
-      const payload: {
-        content: string;
-        messageType: MessageType;
-        encryptedContent?: string;
-        iv?: string;
-      } = {
-        content,
-        messageType: "text",
-      };
+      if (messageType === "text") {
+        // Encrypt client-side for text messages
+        const payload: {
+          content: string;
+          messageType: MessageType;
+          encryptedContent?: string;
+          iv?: string;
+        } = {
+          content,
+          messageType,
+        };
 
-      if (typeof window !== "undefined" && window.crypto?.subtle) {
-        try {
-          const { encryptMessage } = await import("@/lib/encryption");
-          const encrypted = await encryptMessage(content, null, null, conversationId);
-          payload.encryptedContent = encrypted.encryptedContent;
-          payload.iv = encrypted.iv;
-        } catch {
-          // Fall back to plaintext
+        if (typeof window !== "undefined" && window.crypto?.subtle) {
+          try {
+            const { encryptMessage } = await import("@/lib/encryption");
+            const encrypted = await encryptMessage(content, null, null, conversationId);
+            payload.encryptedContent = encrypted.encryptedContent;
+            payload.iv = encrypted.iv;
+          } catch {
+            // Fall back to plaintext
+          }
         }
+
+        await sendMessage(payload);
+      } else {
+        await sendMessage({ content, messageType });
       }
 
-      await sendMessage(payload);
       await fetchMessages();
       onRefreshConversations();
     } catch {
@@ -267,6 +332,31 @@ export default function ChatView({
       await handleSendMedia(messageType, dataUrl);
     } catch {
       alert("Unable to process the selected file.");
+    }
+  };
+
+  const handleDocumentPicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const maxSizeBytes = 15 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      alert("Document must be under 15MB.");
+      return;
+    }
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const payload: DocumentPayload = {
+        name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+        dataUrl,
+      };
+      await handleSendMedia("document", JSON.stringify(payload));
+    } catch {
+      alert("Unable to process the selected document.");
     }
   };
 
@@ -381,6 +471,33 @@ export default function ChatView({
 
   const renderMessageContent = (msg: Message) => {
     const content = msg.content || "";
+
+    if (msg.messageType === "document") {
+      const doc = parseDocumentPayload(content);
+      if (doc) {
+        const sizeLabel = doc.size >= 1024 * 1024
+          ? `${(doc.size / (1024 * 1024)).toFixed(1)} MB`
+          : `${Math.max(1, Math.round(doc.size / 1024))} KB`;
+
+        return (
+          <a
+            href={doc.dataUrl}
+            download={doc.name}
+            className="flex items-center gap-2.5 rounded-xl bg-black/20 px-3 py-2 hover:bg-black/30 transition"
+          >
+            <FileText className="w-4 h-4 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold truncate">{doc.name}</p>
+              <p className="text-[10px] opacity-75">{sizeLabel}</p>
+            </div>
+          </a>
+        );
+      }
+
+      return (
+        <p className="whitespace-pre-wrap break-all leading-relaxed">Document</p>
+      );
+    }
 
     // Detect video media (by type or data URL)
     const isVideoData = content.startsWith("data:video/");
@@ -682,6 +799,13 @@ export default function ChatView({
           className="hidden"
           onChange={(event) => handleFilePicked(event, "sticker", "image/")}
         />
+        <input
+          ref={documentInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z,application/*,text/*"
+          className="hidden"
+          onChange={handleDocumentPicked}
+        />
 
         <button
           type="button"
@@ -737,6 +861,14 @@ export default function ChatView({
                 <Smile className="w-3.5 h-3.5" />
                 Send GIF from URL
               </button>
+              <button
+                type="button"
+                onClick={() => documentInputRef.current?.click()}
+                className="col-span-2 flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 text-surface-200 text-xs"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Document
+              </button>
             </div>
           </div>
         )}
@@ -744,7 +876,7 @@ export default function ChatView({
         <div className="flex-1 glass-input rounded-xl flex items-center focus-within:border-accent-500/50 focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] transition-all">
           <Lock className="w-3.5 h-3.5 text-emerald-500/50 ml-3" />
           <input ref={inputRef} type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type an encrypted message…"
+            placeholder="Type a message, emoji, or GIF link…"
             className="flex-1 bg-transparent px-3 py-2.5 text-sm text-white placeholder-surface-500 focus:outline-none" />
         </div>
         <button type="submit" disabled={!newMessage.trim() || sending}

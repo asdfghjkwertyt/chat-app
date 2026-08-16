@@ -221,6 +221,8 @@ export default function ChatList({
       ? "GIF"
       : type === "sticker"
       ? "Sticker"
+      : type === "document"
+      ? "📎 Document"
       : conv.lastMessage.content;
 
     if (conv.lastMessage.senderId === user.id) return `You: ${baseText}`;

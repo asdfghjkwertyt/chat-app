@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const allowedMessageTypes = new Set(["text", "photo", "video", "gif", "sticker"]);
+    const allowedMessageTypes = new Set(["text", "photo", "video", "gif", "sticker", "document"]);
     const normalizedMessageType = allowedMessageTypes.has(messageType) ? messageType : "text";
 
     if (normalizedMessageType === "text") {
