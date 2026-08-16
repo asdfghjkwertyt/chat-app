@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Search,
   Plus,
@@ -78,6 +78,8 @@ export default function ChatList({
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [isGroup, setIsGroup] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
 
   const filteredConvs = conversations.filter((c) =>
     c.displayName?.toLowerCase().includes(search.toLowerCase())
@@ -134,6 +136,47 @@ export default function ChatList({
     setSelectedMembers((prev) =>
       prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
     );
+  };
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleChatAction = async (conv: Conversation, action: "delete-for-me" | "leave-group") => {
+    const confirmText = conv.isGroup
+      ? "Exit this group? You will no longer receive messages from it."
+      : "Delete this chat for your account only?";
+
+    if (!window.confirm(confirmText)) return;
+
+    try {
+      const res = await fetch(`/api/conversations/${conv.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Unable to update chat");
+      }
+
+      setMenuOpenId(null);
+    } catch (error) {
+      console.error("Chat action failed:", error);
+      alert("This action could not be completed. Please try again.");
+    }
+  };
+
+  const handleLongPressStart = (conv: Conversation) => {
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
+    clearLongPress();
+    longPressTimerRef.current = window.setTimeout(() => {
+      handleChatAction(conv, conv.isGroup ? "leave-group" : "delete-for-me");
+    }, 500);
   };
 
   function formatTime(dateStr: string): string {
@@ -273,43 +316,82 @@ export default function ChatList({
         ) : (
           <div className="space-y-0.5">
             {filteredConvs.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => onSelect(conv.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group ${
-                  selectedId === conv.id
-                    ? "glass-accent"
-                    : "hover:bg-glass-200"
-                }`}
-              >
-                {conv.isGroup ? (
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-accent-600/30 to-purple-600/30 flex items-center justify-center flex-shrink-0 border border-accent-500/20">
-                    <Users className="w-5 h-5 text-accent-400" />
-                  </div>
-                ) : (
-                  <Avatar name={conv.displayName} size="md" status={conv.otherMembers[0]?.status} />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{conv.displayName}</p>
-                      <Lock className="w-3 h-3 text-emerald-500/60 flex-shrink-0" />
+              <div key={conv.id} className="relative">
+                <button
+                  type="button"
+                  onClick={() => onSelect(conv.id)}
+                  onPointerDown={() => handleLongPressStart(conv)}
+                  onPointerUp={clearLongPress}
+                  onPointerLeave={clearLongPress}
+                  onPointerCancel={clearLongPress}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setMenuOpenId((prev) => (prev === conv.id ? null : conv.id));
+                  }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group ${
+                    selectedId === conv.id
+                      ? "glass-accent"
+                      : "hover:bg-glass-200"
+                  }`}
+                >
+                  {conv.isGroup ? (
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-accent-600/30 to-purple-600/30 flex items-center justify-center flex-shrink-0 border border-accent-500/20">
+                      <Users className="w-5 h-5 text-accent-400" />
                     </div>
-                    {conv.lastMessage && (
-                      <span className="text-[10px] text-surface-500 flex-shrink-0">{formatTime(conv.lastMessage.createdAt)}</span>
-                    )}
+                  ) : (
+                    <Avatar name={conv.displayName} size="md" status={conv.otherMembers[0]?.status} />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{conv.displayName}</p>
+                        <Lock className="w-3 h-3 text-emerald-500/60 flex-shrink-0" />
+                      </div>
+                      {conv.lastMessage && (
+                        <span className="text-[10px] text-surface-500 flex-shrink-0">{formatTime(conv.lastMessage.createdAt)}</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-surface-400 truncate mt-0.5">
+                      {conv.lastMessage
+                        ? conv.lastMessage.senderId === user.id
+                          ? `You: ${conv.lastMessage.content}`
+                          : conv.isGroup
+                          ? `${conv.lastMessage.senderName}: ${conv.lastMessage.content}`
+                          : conv.lastMessage.content
+                        : "Start the conversation…"}
+                    </p>
                   </div>
-                  <p className="text-xs text-surface-400 truncate mt-0.5">
-                    {conv.lastMessage
-                      ? conv.lastMessage.senderId === user.id
-                        ? `You: ${conv.lastMessage.content}`
-                        : conv.isGroup
-                        ? `${conv.lastMessage.senderName}: ${conv.lastMessage.content}`
-                        : conv.lastMessage.content
-                      : "Start the conversation…"}
-                  </p>
+                </button>
+
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <button
+                    type="button"
+                    aria-label={`Chat options for ${conv.displayName}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMenuOpenId((prev) => (prev === conv.id ? null : conv.id));
+                    }}
+                    className="w-8 h-8 rounded-full border border-white/10 bg-surface-900/70 text-surface-300 flex items-center justify-center hover:text-white hover:bg-white/5 transition"
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+
+                  {menuOpenId === conv.id && (
+                    <div className="absolute right-0 top-10 z-30 min-w-[170px] glass-light rounded-xl border border-white/10 p-1 shadow-2xl">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleChatAction(conv, conv.isGroup ? "leave-group" : "delete-for-me");
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm rounded-lg text-surface-200 hover:bg-white/5 transition"
+                      >
+                        {conv.isGroup ? "Exit group" : "Delete chat"}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
