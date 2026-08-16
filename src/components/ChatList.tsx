@@ -144,7 +144,7 @@ export default function ChatList({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full pt-16 md:pt-0 pl-1 md:pl-0">
       {/* Header */}
       <div className="p-4 pb-3">
         <div className="flex items-center justify-between mb-4">
