@@ -382,8 +382,9 @@ export default function ChatView({
   const renderMessageContent = (msg: Message) => {
     const content = msg.content || "";
 
-    // Detect video media
-    if (msg.messageType === "video" || content.startsWith("data:video/")) {
+    // Detect video media (by type or data URL)
+    const isVideoData = content.startsWith("data:video/");
+    if (msg.messageType === "video" || isVideoData) {
       return (
         <video
           src={content}
@@ -393,8 +394,9 @@ export default function ChatView({
       );
     }
 
-    // Detect image/gif/sticker media
-    if (msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker" || content.startsWith("data:image/")) {
+    // Detect image/gif/sticker media (by type or data URL)
+    const isImageData = content.startsWith("data:image/");
+    if (msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker" || isImageData) {
       const imgClass = msg.messageType === "sticker"
         ? "max-h-44 max-w-[180px] object-contain"
         : "max-h-72 w-full rounded-xl object-cover";
