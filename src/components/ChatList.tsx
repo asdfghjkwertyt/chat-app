@@ -70,6 +70,7 @@ export default function ChatList({
 }: ChatListProps) {
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [searchUsers, setSearchUsers] = useState<
     { id: string; username: string; displayName: string; status: string }[]
   >([]);
@@ -171,17 +172,51 @@ export default function ChatList({
               <span className="text-emerald-400/80 text-[10px] font-semibold tracking-wide">ENCRYPTED</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="relative flex items-center gap-2">
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="More actions"
+                onClick={() => setShowMenu((prev) => !prev)}
+                className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+
+              {showMenu && (
+                <div className="absolute right-0 top-11 z-20 w-40 rounded-2xl border border-white/10 bg-surface-900/95 p-2 shadow-2xl backdrop-blur-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNew(true);
+                      setIsGroup(false);
+                      setShowMenu(false);
+                    }}
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-surface-200 hover:bg-white/5"
+                  >
+                    New message
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNew(true);
+                      setIsGroup(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-surface-200 hover:bg-white/5"
+                  >
+                    New group
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
-              aria-label="More actions"
-              className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowNew((prev) => !prev)}
+              onClick={() => {
+                setShowNew((prev) => !prev);
+                setShowMenu(false);
+              }}
               aria-label="Create new conversation"
               className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
                 showNew
