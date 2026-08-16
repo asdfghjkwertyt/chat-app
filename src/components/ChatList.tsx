@@ -338,10 +338,10 @@ export default function ChatList({
                     event.preventDefault();
                     setMenuOpenId((prev) => (prev === conv.id ? null : conv.id));
                   }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group ${
+                  className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group relative overflow-hidden ${
                     selectedId === conv.id
-                      ? "glass-accent"
-                      : "hover:bg-glass-200"
+                      ? "bg-gradient-to-r from-accent-600/20 via-purple-600/15 to-transparent border border-accent-500/30 shadow-[0_0_0_1px_rgba(168,85,247,0.18)]"
+                      : "hover:bg-white/5"
                   }`}
                 >
                   {conv.isGroup ? (
@@ -358,10 +358,12 @@ export default function ChatList({
                         <Lock className="w-3 h-3 text-emerald-500/60 flex-shrink-0" />
                       </div>
                       {conv.lastMessage && (
-                        <span className="text-[10px] text-surface-500 flex-shrink-0">{formatTime(conv.lastMessage.createdAt)}</span>
+                        <span className={`text-[10px] flex-shrink-0 ${selectedId === conv.id ? "text-accent-300" : "text-surface-500"}`}>
+                          {formatTime(conv.lastMessage.createdAt)}
+                        </span>
                       )}
                     </div>
-                    <p className="text-xs text-surface-400 truncate mt-0.5">
+                    <p className={`text-xs truncate mt-0.5 ${selectedId === conv.id ? "text-surface-200" : "text-surface-400"}`}>
                       {conv.lastMessage
                         ? conv.lastMessage.senderId === user.id
                           ? `You: ${conv.lastMessage.content}`
@@ -373,7 +375,7 @@ export default function ChatList({
                   </div>
                 </button>
 
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20">
                   <button
                     type="button"
                     aria-label={`Chat options for ${conv.displayName}`}
@@ -381,7 +383,11 @@ export default function ChatList({
                       event.stopPropagation();
                       setMenuOpenId((prev) => (prev === conv.id ? null : conv.id));
                     }}
-                    className="w-8 h-8 rounded-full border border-white/10 bg-surface-900/80 text-surface-300 flex items-center justify-center hover:text-white hover:bg-white/5 transition shadow-lg"
+                    className={`w-8 h-8 rounded-full border flex items-center justify-center transition shadow-lg ${
+                      selectedId === conv.id
+                        ? "border-accent-500/40 bg-accent-500/10 text-accent-200 hover:bg-accent-500/20"
+                        : "border-white/10 bg-surface-900/80 text-surface-300 hover:text-white hover:bg-white/5"
+                    }`}
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
