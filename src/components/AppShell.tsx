@@ -101,15 +101,24 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
   const selectedConv = conversations.find((c) => c.id === selectedConversation);
 
   return (
-    <div className="h-screen flex overflow-hidden relative">
+    <div className="h-screen flex overflow-hidden relative bg-surface-950">
       <button
         type="button"
         onClick={() => setMobileSidebarOpen((prev) => !prev)}
-        className="md:hidden absolute left-3 top-3 z-50 w-10 h-10 rounded-full glass flex items-center justify-center text-surface-200 shadow-lg border border-white/10"
+        className="md:hidden absolute left-4 top-4 z-50 w-11 h-11 rounded-full glass flex items-center justify-center text-surface-200 shadow-lg border border-white/10 backdrop-blur-md"
         aria-label="Toggle sidebar"
       >
         <MoreHorizontal className="w-5 h-5" />
       </button>
+
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="md:hidden absolute inset-0 z-30 bg-surface-950/60 backdrop-blur-[2px]"
+        />
+      )}
 
       <div
         className={`
@@ -134,7 +143,7 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
       <div
         className={`w-full md:w-80 lg:w-[360px] flex-shrink-0 glass flex flex-col border-r-0 ${
           mobileShowChat ? "hidden md:flex" : "flex"
-        }`}
+        } ${mobileSidebarOpen ? "md:flex" : ""}`}
       >
         {activeTab === "chats" && (
           <ChatList
