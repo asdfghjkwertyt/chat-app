@@ -338,7 +338,7 @@ export default function ChatList({
                     event.preventDefault();
                     setMenuOpenId((prev) => (prev === conv.id ? null : conv.id));
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all text-left group relative overflow-hidden active:scale-[0.995] active:opacity-95 ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all text-left group relative overflow-hidden active:scale-[0.995] active:opacity-95 pr-12 ${
                     selectedId === conv.id
                       ? "bg-gradient-to-r from-accent-600/20 via-purple-600/15 to-transparent border border-accent-500/30 shadow-[0_0_0_1px_rgba(168,85,247,0.18)]"
                       : "hover:bg-white/5"
@@ -382,7 +382,7 @@ export default function ChatList({
                   </div>
                 </button>
 
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-6 h-6 flex items-center justify-center">
                   <button
                     type="button"
                     aria-label={`Chat options for ${conv.displayName}`}
