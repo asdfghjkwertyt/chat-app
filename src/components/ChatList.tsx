@@ -55,6 +55,7 @@ interface ChatListProps {
   loading: boolean;
   user: User;
   onNewConversation: (id: string) => void;
+  onToggleSidebar?: () => void;
 }
 
 export default function ChatList({
@@ -64,6 +65,7 @@ export default function ChatList({
   loading,
   user,
   onNewConversation,
+  onToggleSidebar,
 }: ChatListProps) {
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -144,13 +146,26 @@ export default function ChatList({
   }
 
   return (
-    <div className="flex flex-col h-full pt-16 md:pt-0 pl-1 md:pl-0">
+    <div className="flex flex-col h-full pt-0 md:pt-0 pl-0 md:pl-0">
       {/* Header */}
-      <div className="p-4 pb-3">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-bold text-white">Messages</h2>
-            <div className="flex items-center gap-1.5 mt-0.5">
+      <div className="px-4 pt-3 pb-3">
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="md:hidden w-9 h-9 rounded-full glass flex items-center justify-center text-surface-200 shadow-sm border border-white/10"
+            aria-label="Toggle sidebar"
+          >
+            <span className="flex flex-col gap-1">
+              <span className="block w-4 h-0.5 rounded-full bg-current" />
+              <span className="block w-4 h-0.5 rounded-full bg-current" />
+              <span className="block w-4 h-0.5 rounded-full bg-current" />
+            </span>
+          </button>
+
+          <div className="flex-1 md:flex-none">
+            <h2 className="text-[1.1rem] font-bold text-white leading-none">Messages</h2>
+            <div className="flex items-center gap-1.5 mt-1">
               <Shield className="w-3 h-3 text-emerald-400" />
               <span className="text-emerald-400/80 text-[10px] font-semibold tracking-wide">ENCRYPTED</span>
             </div>

@@ -102,16 +102,6 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
 
   return (
     <div className="h-screen flex overflow-hidden relative bg-surface-950">
-      <button
-        type="button"
-        onClick={() => setMobileSidebarOpen((prev) => !prev)}
-        className="md:hidden absolute left-4 top-4 z-50 w-11 h-11 rounded-full glass flex items-center justify-center text-surface-200 shadow-lg border border-white/10 backdrop-blur-md"
-        aria-label="Toggle sidebar"
-        style={{ left: "1rem", top: "1rem" }}
-      >
-        <MoreHorizontal className="w-5 h-5" />
-      </button>
-
       {mobileSidebarOpen && (
         <button
           type="button"
@@ -154,6 +144,7 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
             loading={loading}
             user={user}
             onNewConversation={handleNewConversation}
+            onToggleSidebar={() => setMobileSidebarOpen((prev) => !prev)}
           />
         )}
         {activeTab === "contacts" && (
