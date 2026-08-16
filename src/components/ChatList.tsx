@@ -338,7 +338,7 @@ export default function ChatList({
                     event.preventDefault();
                     setMenuOpenId((prev) => (prev === conv.id ? null : conv.id));
                   }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group relative overflow-hidden ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all text-left group relative overflow-hidden active:scale-[0.995] active:opacity-95 ${
                     selectedId === conv.id
                       ? "bg-gradient-to-r from-accent-600/20 via-purple-600/15 to-transparent border border-accent-500/30 shadow-[0_0_0_1px_rgba(168,85,247,0.18)]"
                       : "hover:bg-white/5"
@@ -352,18 +352,25 @@ export default function ChatList({
                     <Avatar name={conv.displayName} size="md" status={conv.otherMembers[0]?.status} />
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 leading-none">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{conv.displayName}</p>
                         <Lock className="w-3 h-3 text-emerald-500/60 flex-shrink-0" />
                       </div>
-                      {conv.lastMessage && (
-                        <span className={`text-[10px] flex-shrink-0 ${selectedId === conv.id ? "text-accent-300" : "text-surface-500"}`}>
-                          {formatTime(conv.lastMessage.createdAt)}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {conv.lastMessage && (
+                          <span className={`text-[10px] leading-none ${selectedId === conv.id ? "text-accent-300" : "text-surface-500"}`}>
+                            {formatTime(conv.lastMessage.createdAt)}
+                          </span>
+                        )}
+                        {conv.unreadCount > 0 && (
+                          <span className="min-w-5 h-5 px-1.5 rounded-full bg-emerald-500 text-[10px] font-bold text-white flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.65)] leading-none">
+                            {conv.unreadCount > 9 ? "9+" : conv.unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className={`text-xs truncate mt-0.5 ${selectedId === conv.id ? "text-surface-200" : "text-surface-400"}`}>
+                    <p className={`text-xs truncate mt-1 ${selectedId === conv.id ? "text-surface-200" : "text-surface-400"}`}>
                       {conv.lastMessage
                         ? conv.lastMessage.senderId === user.id
                           ? `You: ${conv.lastMessage.content}`
