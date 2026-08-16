@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Search, UserPlus, MessageCircle, Trash2, Loader2,
-  Users, X, AlertCircle, CheckCircle, Shield, Fingerprint, MoreHorizontal,
+  Users, X, AlertCircle, CheckCircle, Shield, Fingerprint, Menu,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
@@ -30,14 +30,14 @@ interface Contact {
 interface ContactsViewProps {
   user: User;
   onStartChat: (convId: string) => void;
+  onToggleSidebar?: () => void;
 }
 
-export default function ContactsView({ user, onStartChat }: ContactsViewProps) {
+export default function ContactsView({ user, onStartChat, onToggleSidebar }: ContactsViewProps) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [addUsername, setAddUsername] = useState("");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
@@ -105,67 +105,37 @@ export default function ContactsView({ user, onStartChat }: ContactsViewProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 pb-3">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-bold text-white">Contacts</h2>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Fingerprint className="w-3 h-3 text-accent-400" />
-              <span className="text-accent-400/80 text-[10px] font-semibold tracking-wide">VERIFIED IDENTITIES</span>
-            </div>
-          </div>
-          <div className="relative flex items-center gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                aria-label="More actions"
-                onClick={() => setShowMenu((prev) => !prev)}
-                className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-
-              {showMenu && (
-                <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl border border-white/10 bg-surface-900/95 p-2 shadow-2xl backdrop-blur-xl">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAdd(true);
-                      setShowMenu(false);
-                      setAddError("");
-                      setAddSuccess("");
-                    }}
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-surface-200 hover:bg-white/5"
-                  >
-                    Add contact
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAdd(false);
-                      setShowMenu(false);
-                    }}
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-surface-200 hover:bg-white/5"
-                  >
-                    Close menu
-                  </button>
-                </div>
-              )}
-            </div>
-
+        <div className="flex items-center justify-between mb-4 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
-              onClick={() => {
-                setShowAdd((prev) => !prev);
-                setShowMenu(false);
-                setAddError("");
-                setAddSuccess("");
-              }}
-              aria-label="Add contact"
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${showAdd ? "bg-gradient-to-br from-accent-600 to-purple-600 text-white glow-accent-sm" : "glass glass-hover text-surface-400 hover:text-white"}`}
+              onClick={onToggleSidebar}
+              className="md:hidden w-9 h-9 rounded-xl glass glass-hover text-surface-200 flex items-center justify-center"
+              aria-label="Toggle sidebar"
             >
-              {showAdd ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+              <Menu className="w-4 h-4" />
             </button>
+            <div>
+              <h2 className="text-lg font-bold text-white">Contacts</h2>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Fingerprint className="w-3 h-3 text-accent-400" />
+                <span className="text-accent-400/80 text-[10px] font-semibold tracking-wide">VERIFIED IDENTITIES</span>
+              </div>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowAdd((prev) => !prev);
+              setAddError("");
+              setAddSuccess("");
+            }}
+            aria-label="Add contact"
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${showAdd ? "bg-gradient-to-br from-accent-600 to-purple-600 text-white glow-accent-sm" : "glass glass-hover text-surface-400 hover:text-white"}`}
+          >
+            {showAdd ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+          </button>
         </div>
 
         <div className="relative">

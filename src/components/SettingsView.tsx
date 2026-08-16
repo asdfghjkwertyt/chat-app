@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   User as UserIcon, LogOut, Save, Loader2, CheckCircle,
-  Bell, Shield, Palette, HelpCircle, Lock, Key, Fingerprint, MoreHorizontal,
+  Bell, Shield, Palette, HelpCircle, Lock, Key, Fingerprint, Menu,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
@@ -20,9 +20,10 @@ interface SettingsViewProps {
   user: User;
   onUserUpdate: (user: User) => void;
   onLogout: () => void;
+  onToggleSidebar?: () => void;
 }
 
-export default function SettingsView({ user, onUserUpdate, onLogout }: SettingsViewProps) {
+export default function SettingsView({ user, onUserUpdate, onLogout, onToggleSidebar }: SettingsViewProps) {
   const [displayName, setDisplayName] = useState(user.displayName);
   const [statusMessage, setStatusMessage] = useState(user.statusMessage || "");
   const [status, setStatus] = useState(user.status);
@@ -57,29 +58,31 @@ export default function SettingsView({ user, onUserUpdate, onLogout }: SettingsV
     <div className="flex flex-col h-full">
       <div className="p-4 pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-white">Settings</h2>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Key className="w-3 h-3 text-accent-400" />
-              <span className="text-accent-400/80 text-[10px] font-semibold tracking-wide">SECURITY CENTER</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="md:hidden w-9 h-9 rounded-xl glass glass-hover text-surface-200 flex items-center justify-center"
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+            <div>
+              <h2 className="text-lg font-bold text-white">Settings</h2>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Key className="w-3 h-3 text-accent-400" />
+                <span className="text-accent-400/80 text-[10px] font-semibold tracking-wide">SECURITY CENTER</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="More actions"
-              className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Save settings"
-              className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
-            >
-              <Save className="w-4 h-4" />
-            </button>
-          </div>
+
+          <button
+            type="button"
+            aria-label="Save settings"
+            className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
+          >
+            <Save className="w-4 h-4" />
+          </button>
         </div>
       </div>
 

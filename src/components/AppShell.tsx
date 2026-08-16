@@ -148,11 +148,22 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
           />
         )}
         {activeTab === "contacts" && (
-          <ContactsView user={user} onStartChat={handleNewConversation} />
+          <ContactsView
+            user={user}
+            onStartChat={handleNewConversation}
+            onToggleSidebar={() => setMobileSidebarOpen((prev) => !prev)}
+          />
         )}
-        {activeTab === "calls" && <CallsView user={user} />}
+        {activeTab === "calls" && (
+          <CallsView user={user} onToggleSidebar={() => setMobileSidebarOpen((prev) => !prev)} />
+        )}
         {activeTab === "settings" && (
-          <SettingsView user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
+          <SettingsView
+            user={user}
+            onUserUpdate={onUserUpdate}
+            onLogout={onLogout}
+            onToggleSidebar={() => setMobileSidebarOpen((prev) => !prev)}
+          />
         )}
       </div>
 

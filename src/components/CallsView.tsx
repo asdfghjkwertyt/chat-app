@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Phone, Video, PhoneIncoming, PhoneOutgoing, PhoneMissed,
-  Loader2, Clock, Shield, Lock, MoreHorizontal,
+  Loader2, Clock, Shield, Lock, Menu,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
@@ -25,9 +25,12 @@ interface Call {
   isGroup: boolean;
 }
 
-interface CallsViewProps { user: User; }
+interface CallsViewProps {
+  user: User;
+  onToggleSidebar?: () => void;
+}
 
-export default function CallsView({ user }: CallsViewProps) {
+export default function CallsView({ user, onToggleSidebar }: CallsViewProps) {
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "missed">("all");
@@ -63,29 +66,31 @@ export default function CallsView({ user }: CallsViewProps) {
     <div className="flex flex-col h-full">
       <div className="p-4 pb-3">
         <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-white">Calls</h2>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Lock className="w-3 h-3 text-emerald-400" />
-              <span className="text-emerald-400/80 text-[10px] font-semibold tracking-wide">ENCRYPTED CALLS</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="md:hidden w-9 h-9 rounded-xl glass glass-hover text-surface-200 flex items-center justify-center"
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+            <div>
+              <h2 className="text-lg font-bold text-white">Calls</h2>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Lock className="w-3 h-3 text-emerald-400" />
+                <span className="text-emerald-400/80 text-[10px] font-semibold tracking-wide">ENCRYPTED CALLS</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="More actions"
-              className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Filter calls"
-              className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
-            >
-              <Phone className="w-4 h-4" />
-            </button>
-          </div>
+
+          <button
+            type="button"
+            aria-label="Filter calls"
+            className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
+          >
+            <Phone className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="flex gap-2">
