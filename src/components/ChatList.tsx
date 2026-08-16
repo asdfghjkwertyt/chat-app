@@ -32,6 +32,7 @@ interface Conversation {
   displayStatus: string;
   lastMessage: {
     content: string;
+    messageType?: string;
     createdAt: string;
     senderName: string;
     senderId: string;
@@ -203,6 +204,25 @@ export default function ChatList({
     if (diffDays < 7) return date.toLocaleDateString([], { weekday: "short" });
     return date.toLocaleDateString([], { month: "short", day: "numeric" });
   }
+
+  const getLastMessagePreview = (conv: Conversation): string => {
+    if (!conv.lastMessage) return "Start the conversation…";
+
+    const type = conv.lastMessage.messageType || "text";
+    const baseText = type === "photo"
+      ? "📷 Photo"
+      : type === "video"
+      ? "🎥 Video"
+      : type === "gif"
+      ? "GIF"
+      : type === "sticker"
+      ? "Sticker"
+      : conv.lastMessage.content;
+
+    if (conv.lastMessage.senderId === user.id) return `You: ${baseText}`;
+    if (conv.isGroup) return `${conv.lastMessage.senderName}: ${baseText}`;
+    return baseText;
+  };
 
   return (
     <div className="flex flex-col h-full pt-0 md:pt-0 pl-0 md:pl-0">
@@ -376,13 +396,7 @@ export default function ChatList({
                       </div>
                     </div>
                     <p className={`text-xs truncate mt-1 ${selectedId === conv.id ? "text-surface-200" : "text-surface-400"}`}>
-                      {conv.lastMessage
-                        ? conv.lastMessage.senderId === user.id
-                          ? `You: ${conv.lastMessage.content}`
-                          : conv.isGroup
-                          ? `${conv.lastMessage.senderName}: ${conv.lastMessage.content}`
-                          : conv.lastMessage.content
-                        : "Start the conversation…"}
+                      {getLastMessagePreview(conv)}
                     </p>
                   </div>
                 </button>

@@ -40,6 +40,7 @@ export async function GET() {
         const [lastMsg] = await db
           .select({
             content: messages.content,
+            messageType: messages.messageType,
             createdAt: messages.createdAt,
             senderId: messages.senderId,
             senderName: users.displayName,

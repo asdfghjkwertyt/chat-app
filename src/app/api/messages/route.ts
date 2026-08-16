@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { conversationId, content, encryptedContent, iv } = await req.json();
+    const { conversationId, content, encryptedContent, iv, messageType } = await req.json();
 
     if (!conversationId) {
       return NextResponse.json(
@@ -89,10 +89,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Need either encrypted or plaintext content
-    if (!encryptedContent && !content?.trim()) {
+    const allowedMessageTypes = new Set(["text", "photo", "video", "gif", "sticker"]);
+    const normalizedMessageType = allowedMessageTypes.has(messageType) ? messageType : "text";
+
+    if (normalizedMessageType === "text") {
+      // Need either encrypted or plaintext content for text messages
+      if (!encryptedContent && !content?.trim()) {
+        return NextResponse.json(
+          { error: "Message content is required" },
+          { status: 400 }
+        );
+      }
+    } else if (!content?.trim()) {
       return NextResponse.json(
-        { error: "Message content is required" },
+        { error: "Media content is required" },
         { status: 400 }
       );
     }
@@ -113,17 +123,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const isEncrypted = !!encryptedContent && !!iv;
+    const isEncrypted = normalizedMessageType === "text" && !!encryptedContent && !!iv;
+    const rawContent = String(content || "").trim();
 
     const [msg] = await db
       .insert(messages)
       .values({
         conversationId,
         senderId: userId,
-        content: isEncrypted ? "[Encrypted Message]" : sanitizeInput(content.trim()),
+        content:
+          normalizedMessageType === "text"
+            ? isEncrypted
+              ? "[Encrypted Message]"
+              : sanitizeInput(rawContent)
+            : rawContent,
         encryptedContent: isEncrypted ? encryptedContent : null,
         iv: isEncrypted ? iv : null,
         encryptionVersion: isEncrypted ? 1 : 0,
+        messageType: normalizedMessageType,
       })
       .returning();
 

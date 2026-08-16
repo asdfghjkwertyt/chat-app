@@ -4,8 +4,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Phone, Video, Send, Loader2,
   Edit2, Trash2, X, Check, Users, Info, Shield, Lock,
+  Paperclip, Image as ImageIcon, Film, Smile,
 } from "lucide-react";
 import Avatar from "./Avatar";
+
+type MessageType = "text" | "photo" | "video" | "gif" | "sticker";
 
 interface User {
   id: string;
@@ -20,7 +23,7 @@ interface Message {
   encryptedContent: string | null;
   iv: string | null;
   encryptionVersion: number;
-  messageType: string;
+  messageType: MessageType;
   isEdited: boolean;
   isDeleted: boolean;
   createdAt: string;
@@ -65,8 +68,13 @@ export default function ChatView({
   const [editContent, setEditContent] = useState("");
   const [showInfo, setShowInfo] = useState(false);
   const [isActioning, setIsActioning] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const gifInputRef = useRef<HTMLInputElement>(null);
+  const stickerInputRef = useRef<HTMLInputElement>(null);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -111,6 +119,24 @@ export default function ChatView({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const sendMessage = async (payload: {
+    content: string;
+    messageType: MessageType;
+    encryptedContent?: string;
+    iv?: string;
+  }) => {
+    const res = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId, ...payload }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Unable to send message");
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || sending) return;
@@ -139,22 +165,28 @@ export default function ChatView({
 
     try {
       // Encrypt client-side
-      let body: Record<string, string> = { conversationId, content };
+      const payload: {
+        content: string;
+        messageType: MessageType;
+        encryptedContent?: string;
+        iv?: string;
+      } = {
+        content,
+        messageType: "text",
+      };
+
       if (typeof window !== "undefined" && window.crypto?.subtle) {
         try {
           const { encryptMessage } = await import("@/lib/encryption");
           const encrypted = await encryptMessage(content, null, null, conversationId);
-          body = { conversationId, content, ...encrypted };
+          payload.encryptedContent = encrypted.encryptedContent;
+          payload.iv = encrypted.iv;
         } catch {
           // Fall back to plaintext
         }
       }
 
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      await sendMessage(payload);
       await fetchMessages();
       onRefreshConversations();
     } catch {
@@ -164,6 +196,91 @@ export default function ChatView({
       setSending(false);
       inputRef.current?.focus();
     }
+  };
+
+  const fileToDataUrl = async (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+
+  const handleSendMedia = async (messageType: MessageType, dataUrl: string) => {
+    if (sending) return;
+
+    const optimisticMsg: Message = {
+      id: `temp-${Date.now()}`,
+      content: dataUrl,
+      encryptedContent: null,
+      iv: null,
+      encryptionVersion: 0,
+      messageType,
+      isEdited: false,
+      isDeleted: false,
+      createdAt: new Date().toISOString(),
+      senderId: user.id,
+      senderName: user.displayName,
+      senderUsername: user.username,
+      senderStatus: user.status,
+      senderAvatar: null,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setSending(true);
+    setShowAttachMenu(false);
+
+    try {
+      await sendMessage({ content: dataUrl, messageType });
+      await fetchMessages();
+      onRefreshConversations();
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+      alert("Unable to send media message.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleFilePicked = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    messageType: MessageType,
+    mimePrefix: "image/" | "video/"
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith(mimePrefix)) {
+      alert(`Please choose a valid ${mimePrefix === "image/" ? "image" : "video"} file.`);
+      return;
+    }
+
+    const maxSizeBytes = mimePrefix === "video/" ? 12 * 1024 * 1024 : 5 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      alert(mimePrefix === "video/" ? "Video must be under 12MB." : "Image must be under 5MB.");
+      return;
+    }
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      await handleSendMedia(messageType, dataUrl);
+    } catch {
+      alert("Unable to process the selected file.");
+    }
+  };
+
+  const handleSendFromUrlPrompt = async (messageType: "gif" | "sticker") => {
+    const promptLabel = messageType === "gif" ? "GIF" : "sticker";
+    const url = window.prompt(`Paste a ${promptLabel} image URL:`)?.trim();
+    if (!url) return;
+
+    if (!/^https?:\/\//i.test(url) && !url.startsWith("data:image/")) {
+      alert("Please provide a valid image URL.");
+      return;
+    }
+
+    await handleSendMedia(messageType, url);
   };
 
   const handleEdit = async (msgId: string) => {
@@ -261,6 +378,35 @@ export default function ChatView({
   const displayStatus = conversation?.displayStatus || "";
   const currentUserRole = conversation?.members.find((member) => member.id === user.id)?.role || "member";
   const isCurrentUserAdmin = currentUserRole === "admin";
+
+  const renderMessageContent = (msg: Message) => {
+    if (msg.messageType === "video") {
+      return (
+        <video
+          src={msg.content}
+          controls
+          className="max-h-72 w-full rounded-xl bg-black/40"
+        />
+      );
+    }
+
+    if (msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker") {
+      const imgClass = msg.messageType === "sticker"
+        ? "max-h-44 max-w-[180px] object-contain"
+        : "max-h-72 w-full rounded-xl object-cover";
+
+      return (
+        <img
+          src={msg.content}
+          alt={msg.messageType}
+          className={imgClass}
+          loading="lazy"
+        />
+      );
+    }
+
+    return <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>;
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -366,7 +512,11 @@ export default function ChatView({
                                     ? "bg-gradient-to-br from-accent-600 to-purple-600 text-white rounded-br-md shadow-lg shadow-accent-600/20"
                                     : "glass-light text-surface-100 rounded-bl-md"
                                 }`}>
-                                  <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                                  {msg.isDeleted ? (
+                                    <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                                  ) : (
+                                    renderMessageContent(msg)
+                                  )}
                                   <div className={`flex items-center gap-1.5 mt-1 ${isMe ? "justify-end" : ""}`}>
                                     <Lock className={`w-2.5 h-2.5 ${isMe ? "text-white/40" : "text-surface-500/60"}`} />
                                     <span className={`text-[10px] ${isMe ? "text-white/50" : "text-surface-500"}`}>{formatTime(msg.createdAt)}</span>
@@ -374,7 +524,7 @@ export default function ChatView({
                                   </div>
                                 </div>
 
-                                {isMe && !msg.isDeleted && !msg.id.startsWith("temp-") && (
+                                {isMe && !msg.isDeleted && !msg.id.startsWith("temp-") && msg.messageType === "text" && (
                                   <div className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-all">
                                     <div className="flex items-center gap-0.5 glass rounded-xl p-0.5 shadow-xl">
                                       <button onClick={() => { setEditingId(msg.id); setEditContent(msg.content); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:text-white hover:bg-glass-300 transition" title="Edit">
@@ -496,7 +646,94 @@ export default function ChatView({
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="flex items-center gap-2 px-4 py-3 glass border-t-0 flex-shrink-0">
+      <form onSubmit={handleSend} className="relative flex items-center gap-2 px-4 py-3 glass border-t-0 flex-shrink-0">
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => handleFilePicked(event, "photo", "image/")}
+        />
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          className="hidden"
+          onChange={(event) => handleFilePicked(event, "video", "video/")}
+        />
+        <input
+          ref={gifInputRef}
+          type="file"
+          accept="image/gif"
+          className="hidden"
+          onChange={(event) => handleFilePicked(event, "gif", "image/")}
+        />
+        <input
+          ref={stickerInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => handleFilePicked(event, "sticker", "image/")}
+        />
+
+        <button
+          type="button"
+          onClick={() => setShowAttachMenu((prev) => !prev)}
+          className="w-10 h-10 rounded-xl glass glass-hover text-surface-300 hover:text-white flex items-center justify-center"
+          aria-label="Add media"
+        >
+          <Paperclip className="w-4 h-4" />
+        </button>
+
+        {showAttachMenu && (
+          <div className="absolute bottom-14 left-4 z-30 glass-light rounded-2xl border border-white/10 p-2 shadow-2xl w-56">
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 text-surface-200 text-xs"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 text-surface-200 text-xs"
+              >
+                <Film className="w-3.5 h-3.5" />
+                Video
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  gifInputRef.current?.click();
+                }}
+                className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 text-surface-200 text-xs"
+              >
+                <Smile className="w-3.5 h-3.5" />
+                GIF file
+              </button>
+              <button
+                type="button"
+                onClick={() => stickerInputRef.current?.click()}
+                className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 text-surface-200 text-xs"
+              >
+                <Smile className="w-3.5 h-3.5" />
+                Sticker
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSendFromUrlPrompt("gif")}
+                className="col-span-2 flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 text-surface-200 text-xs"
+              >
+                <Smile className="w-3.5 h-3.5" />
+                Send GIF from URL
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 glass-input rounded-xl flex items-center focus-within:border-accent-500/50 focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] transition-all">
           <Lock className="w-3.5 h-3.5 text-emerald-500/50 ml-3" />
           <input ref={inputRef} type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
