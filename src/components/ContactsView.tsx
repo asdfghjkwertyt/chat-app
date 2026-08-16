@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Search, UserPlus, MessageCircle, Trash2, Loader2,
-  Users, X, AlertCircle, CheckCircle, Shield, Fingerprint,
+  Users, X, AlertCircle, CheckCircle, Shield, Fingerprint, MoreHorizontal,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
@@ -112,10 +112,19 @@ export default function ContactsView({ user, onStartChat }: ContactsViewProps) {
               <span className="text-accent-400/80 text-[10px] font-semibold tracking-wide">VERIFIED IDENTITIES</span>
             </div>
           </div>
-          <button onClick={() => { setShowAdd(!showAdd); setAddError(""); setAddSuccess(""); }}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${showAdd ? "bg-gradient-to-br from-accent-600 to-purple-600 text-white glow-accent-sm" : "glass glass-hover text-surface-400 hover:text-white"}`}>
-            {showAdd ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="More actions"
+              className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            <button onClick={() => { setShowAdd(!showAdd); setAddError(""); setAddSuccess(""); }}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${showAdd ? "bg-gradient-to-br from-accent-600 to-purple-600 text-white glow-accent-sm" : "glass glass-hover text-surface-400 hover:text-white"}`}>
+              {showAdd ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
 
         <div className="relative">

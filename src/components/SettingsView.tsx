@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   User as UserIcon, LogOut, Save, Loader2, CheckCircle,
-  Bell, Shield, Palette, HelpCircle, Lock, Key, Fingerprint,
+  Bell, Shield, Palette, HelpCircle, Lock, Key, Fingerprint, MoreHorizontal,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
@@ -56,10 +56,21 @@ export default function SettingsView({ user, onUserUpdate, onLogout }: SettingsV
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 pb-3">
-        <h2 className="text-lg font-bold text-white">Settings</h2>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <Key className="w-3 h-3 text-accent-400" />
-          <span className="text-accent-400/80 text-[10px] font-semibold tracking-wide">SECURITY CENTER</span>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-white">Settings</h2>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Key className="w-3 h-3 text-accent-400" />
+              <span className="text-accent-400/80 text-[10px] font-semibold tracking-wide">SECURITY CENTER</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="More actions"
+            className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Phone, Video, PhoneIncoming, PhoneOutgoing, PhoneMissed,
-  Loader2, Clock, Shield, Lock,
+  Loader2, Clock, Shield, Lock, MoreHorizontal,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
@@ -62,12 +62,21 @@ export default function CallsView({ user }: CallsViewProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 pb-3">
-        <div className="mb-4">
-          <h2 className="text-lg font-bold text-white">Calls</h2>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <Lock className="w-3 h-3 text-emerald-400" />
-            <span className="text-emerald-400/80 text-[10px] font-semibold tracking-wide">ENCRYPTED CALLS</span>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-white">Calls</h2>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Lock className="w-3 h-3 text-emerald-400" />
+              <span className="text-emerald-400/80 text-[10px] font-semibold tracking-wide">ENCRYPTED CALLS</span>
+            </div>
           </div>
+          <button
+            type="button"
+            aria-label="More actions"
+            className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="flex gap-2">
