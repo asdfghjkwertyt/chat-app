@@ -81,6 +81,17 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
+
   const handleSelectConversation = (id: string) => {
     setSelectedConversation(id);
     setMobileShowChat(true);
@@ -127,6 +138,7 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
           }}
           user={user}
           onLogout={onLogout}
+          onClose={() => setMobileSidebarOpen(false)}
         />
       </div>
 

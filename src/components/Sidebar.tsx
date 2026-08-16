@@ -24,6 +24,7 @@ interface SidebarProps {
   onTabChange: (tab: string) => void;
   user: User;
   onLogout: () => void;
+  onClose?: () => void;
 }
 
 const tabs = [
@@ -38,6 +39,7 @@ export default function Sidebar({
   onTabChange,
   user,
   onLogout,
+  onClose,
 }: SidebarProps) {
   return (
     <div className="w-[82vw] max-w-[300px] h-full glass flex flex-col items-stretch py-4 px-3 flex-shrink-0 border-r border-white/5 shadow-2xl md:w-[72px] md:max-w-[72px] md:px-0 md:py-5">
@@ -53,7 +55,8 @@ export default function Sidebar({
 
         <button
           type="button"
-          className="md:hidden w-9 h-9 rounded-full glass flex items-center justify-center text-surface-200"
+          onClick={onClose}
+          className="md:hidden w-9 h-9 rounded-full glass flex items-center justify-center text-surface-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
           aria-label="Close sidebar"
         >
           <X className="w-4 h-4" />
