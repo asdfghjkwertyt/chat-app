@@ -381,13 +381,9 @@ export default function ChatView({
 
   const renderMessageContent = (msg: Message) => {
     const content = msg.content || "";
-    const inferredType: MessageType | "unknown" = msg.messageType === "video" || content.startsWith("data:video/")
-      ? "video"
-      : msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker" || content.startsWith("data:image/")
-      ? (msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker" ? msg.messageType : "photo")
-      : "unknown";
 
-    if (inferredType === "video") {
+    // Detect video media
+    if (msg.messageType === "video" || content.startsWith("data:video/")) {
       return (
         <video
           src={content}
@@ -397,21 +393,23 @@ export default function ChatView({
       );
     }
 
-    if (inferredType === "photo" || inferredType === "gif" || inferredType === "sticker") {
-      const imgClass = inferredType === "sticker"
+    // Detect image/gif/sticker media
+    if (msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker" || content.startsWith("data:image/")) {
+      const imgClass = msg.messageType === "sticker"
         ? "max-h-44 max-w-[180px] object-contain"
         : "max-h-72 w-full rounded-xl object-cover";
 
       return (
         <img
           src={content}
-          alt={inferredType}
+          alt={msg.messageType || "media"}
           className={imgClass}
           loading="lazy"
         />
       );
     }
 
+    // Fallback to text
     return <p className="whitespace-pre-wrap break-all leading-relaxed">{content}</p>;
   };
 
