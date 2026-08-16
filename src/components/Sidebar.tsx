@@ -8,6 +8,7 @@ import {
   LogOut,
   Shield,
   X,
+  MoreHorizontal,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
@@ -64,22 +65,32 @@ export default function Sidebar({
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`group relative w-full md:w-11 h-11 rounded-xl flex items-center justify-start md:justify-center gap-3 px-3 md:px-0 transition-all duration-200 ${
-                isActive
-                  ? "bg-gradient-to-br from-accent-600 to-purple-600 text-white shadow-lg glow-accent-sm"
-                  : "text-surface-500 hover:text-white hover:bg-glass-200"
-              }`}
-              title={tab.label}
-            >
-              <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-              <span className="text-sm font-medium md:hidden">{tab.label}</span>
-              <span className="absolute left-full ml-3 px-2.5 py-1.5 glass rounded-lg text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-150 z-50 shadow-xl hidden md:block">
-                {tab.label}
-              </span>
-            </button>
+            <div key={tab.id} className="relative w-full md:w-11">
+              <button
+                onClick={() => onTabChange(tab.id)}
+                className={`group relative w-full md:w-11 h-11 rounded-xl flex items-center justify-start md:justify-center gap-3 px-3 md:px-0 transition-all duration-200 ${
+                  isActive
+                    ? "bg-gradient-to-br from-accent-600 to-purple-600 text-white shadow-lg glow-accent-sm"
+                    : "text-surface-500 hover:text-white hover:bg-glass-200"
+                }`}
+                title={tab.label}
+              >
+                <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                <span className="text-sm font-medium md:hidden">{tab.label}</span>
+                <span className="absolute left-full ml-3 px-2.5 py-1.5 glass rounded-lg text-white text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-150 z-50 shadow-xl hidden md:block">
+                  {tab.label}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                aria-label={`${tab.label} options`}
+                onClick={(event) => event.stopPropagation()}
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-surface-400 hover:text-white hover:bg-white/5 md:hidden"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </div>
           );
         })}
       </nav>
