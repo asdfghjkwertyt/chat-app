@@ -380,32 +380,39 @@ export default function ChatView({
   const isCurrentUserAdmin = currentUserRole === "admin";
 
   const renderMessageContent = (msg: Message) => {
-    if (msg.messageType === "video") {
+    const content = msg.content || "";
+    const inferredType: MessageType | "unknown" = msg.messageType === "video" || content.startsWith("data:video/")
+      ? "video"
+      : msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker" || content.startsWith("data:image/")
+      ? (msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker" ? msg.messageType : "photo")
+      : "unknown";
+
+    if (inferredType === "video") {
       return (
         <video
-          src={msg.content}
+          src={content}
           controls
           className="max-h-72 w-full rounded-xl bg-black/40"
         />
       );
     }
 
-    if (msg.messageType === "photo" || msg.messageType === "gif" || msg.messageType === "sticker") {
-      const imgClass = msg.messageType === "sticker"
+    if (inferredType === "photo" || inferredType === "gif" || inferredType === "sticker") {
+      const imgClass = inferredType === "sticker"
         ? "max-h-44 max-w-[180px] object-contain"
         : "max-h-72 w-full rounded-xl object-cover";
 
       return (
         <img
-          src={msg.content}
-          alt={msg.messageType}
+          src={content}
+          alt={inferredType}
           className={imgClass}
           loading="lazy"
         />
       );
     }
 
-    return <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>;
+    return <p className="whitespace-pre-wrap break-all leading-relaxed">{content}</p>;
   };
 
   return (
@@ -513,7 +520,7 @@ export default function ChatView({
                                     : "glass-light text-surface-100 rounded-bl-md"
                                 }`}>
                                   {msg.isDeleted ? (
-                                    <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                                    <p className="whitespace-pre-wrap break-all leading-relaxed">{msg.content}</p>
                                   ) : (
                                     renderMessageContent(msg)
                                   )}

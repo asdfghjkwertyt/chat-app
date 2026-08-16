@@ -208,7 +208,11 @@ export default function ChatList({
   const getLastMessagePreview = (conv: Conversation): string => {
     if (!conv.lastMessage) return "Start the conversation…";
 
-    const type = conv.lastMessage.messageType || "text";
+    const content = conv.lastMessage.content || "";
+    const inferredType = conv.lastMessage.messageType
+      || (content.startsWith("data:image/") ? "photo" : content.startsWith("data:video/") ? "video" : "text");
+
+    const type = inferredType;
     const baseText = type === "photo"
       ? "📷 Photo"
       : type === "video"
