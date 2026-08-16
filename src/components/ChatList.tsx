@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Search,
   Plus,
@@ -11,6 +11,8 @@ import {
   Shield,
   Lock,
   MoreHorizontal,
+  LogOut,
+  Trash2,
 } from "lucide-react";
 import Avatar from "./Avatar";
 
@@ -80,6 +82,14 @@ export default function ChatList({
   const [creating, setCreating] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!menuOpenId) return;
+
+    const handleClickOutside = () => setMenuOpenId(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, [menuOpenId]);
 
   const filteredConvs = conversations.filter((c) =>
     c.displayName?.toLowerCase().includes(search.toLowerCase())
@@ -371,21 +381,23 @@ export default function ChatList({
                       event.stopPropagation();
                       setMenuOpenId((prev) => (prev === conv.id ? null : conv.id));
                     }}
-                    className="w-8 h-8 rounded-full border border-white/10 bg-surface-900/70 text-surface-300 flex items-center justify-center hover:text-white hover:bg-white/5 transition"
+                    className="w-8 h-8 rounded-full border border-white/10 bg-surface-900/80 text-surface-300 flex items-center justify-center hover:text-white hover:bg-white/5 transition shadow-lg"
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
 
                   {menuOpenId === conv.id && (
-                    <div className="absolute right-0 top-10 z-30 min-w-[170px] glass-light rounded-xl border border-white/10 p-1 shadow-2xl">
+                    <div className="absolute right-0 top-10 z-30 min-w-[180px] glass-light rounded-xl border border-white/10 p-1.5 shadow-2xl backdrop-blur-md">
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
+                          setMenuOpenId(null);
                           handleChatAction(conv, conv.isGroup ? "leave-group" : "delete-for-me");
                         }}
-                        className="w-full text-left px-3 py-2 text-sm rounded-lg text-surface-200 hover:bg-white/5 transition"
+                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm rounded-lg text-rose-200 hover:bg-rose-500/10 transition"
                       >
+                        {conv.isGroup ? <LogOut className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
                         {conv.isGroup ? "Exit group" : "Delete chat"}
                       </button>
                     </div>
