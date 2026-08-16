@@ -390,10 +390,10 @@ export default function ChatList({
                       event.stopPropagation();
                       setMenuOpenId((prev) => (prev === conv.id ? null : conv.id));
                     }}
-                    className={`w-8 h-8 rounded-full border flex items-center justify-center transition shadow-lg ${
+                    className={`w-6 h-6 rounded-full flex items-center justify-center transition ${
                       selectedId === conv.id
-                        ? "border-accent-500/40 bg-accent-500/10 text-accent-200 hover:bg-accent-500/20"
-                        : "border-white/10 bg-surface-900/80 text-surface-300 hover:text-white hover:bg-white/5"
+                        ? "bg-accent-500/10 text-accent-200 hover:bg-accent-500/20"
+                        : "bg-surface-900/70 text-surface-300 hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <MoreHorizontal className="w-4 h-4" />
