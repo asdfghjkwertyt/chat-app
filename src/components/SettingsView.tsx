@@ -64,13 +64,22 @@ export default function SettingsView({ user, onUserUpdate, onLogout }: SettingsV
               <span className="text-accent-400/80 text-[10px] font-semibold tracking-wide">SECURITY CENTER</span>
             </div>
           </div>
-          <button
-            type="button"
-            aria-label="More actions"
-            className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="More actions"
+              className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Save settings"
+              className="w-9 h-9 rounded-xl glass glass-hover text-surface-400 hover:text-white flex items-center justify-center transition-all"
+            >
+              <Save className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
