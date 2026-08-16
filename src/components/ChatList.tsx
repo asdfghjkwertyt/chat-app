@@ -400,7 +400,7 @@ export default function ChatList({
                   </button>
 
                   {menuOpenId === conv.id && (
-                    <div className="absolute right-0 top-10 z-30 min-w-[180px] glass-light rounded-xl border border-white/10 p-1.5 shadow-2xl backdrop-blur-md">
+                    <div className="absolute right-8 top-10 z-30 min-w-[180px] glass-light rounded-xl border border-white/10 p-1.5 shadow-2xl backdrop-blur-md">
                       <button
                         type="button"
                         onClick={(event) => {
