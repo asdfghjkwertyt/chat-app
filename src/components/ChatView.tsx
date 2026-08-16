@@ -90,6 +90,7 @@ export default function ChatView({
 
     if (lower.startsWith("data:video/")) return { content, messageType: "video" };
     if (lower.startsWith("data:image/gif")) return { content, messageType: "gif" };
+    if (lower.startsWith("data:image/webp")) return { content, messageType: "sticker" };
     if (lower.startsWith("data:image/")) return { content, messageType: "photo" };
 
     const isUrl = /^https?:\/\/\S+$/i.test(content);
@@ -270,6 +271,41 @@ export default function ChatView({
       reader.onerror = () => reject(new Error("Failed to read file"));
       reader.readAsDataURL(file);
     });
+
+  const inferPastedMediaType = (mimeType: string): MessageType | null => {
+    if (mimeType.startsWith("video/")) return "video";
+    if (mimeType === "image/gif") return "gif";
+    if (mimeType === "image/webp") return "sticker";
+    if (mimeType.startsWith("image/")) return "photo";
+    return null;
+  };
+
+  const handleInputPaste = async (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = Array.from(event.clipboardData.items || []);
+    const fileItem = items.find((item) => item.kind === "file" && inferPastedMediaType(item.type));
+    if (!fileItem || sending) return;
+
+    const file = fileItem.getAsFile();
+    if (!file) return;
+
+    const messageType = inferPastedMediaType(file.type);
+    if (!messageType) return;
+
+    const maxSizeBytes = messageType === "video" ? 12 * 1024 * 1024 : 5 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      event.preventDefault();
+      alert(messageType === "video" ? "Video must be under 12MB." : "Image must be under 5MB.");
+      return;
+    }
+
+    event.preventDefault();
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      await handleSendMedia(messageType, dataUrl);
+    } catch {
+      alert("Unable to send pasted media.");
+    }
+  };
 
   const handleSendMedia = async (messageType: MessageType, dataUrl: string) => {
     if (sending) return;
@@ -876,6 +912,7 @@ export default function ChatView({
         <div className="flex-1 glass-input rounded-xl flex items-center focus-within:border-accent-500/50 focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] transition-all">
           <Lock className="w-3.5 h-3.5 text-emerald-500/50 ml-3" />
           <input ref={inputRef} type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
+            onPaste={(event) => void handleInputPaste(event)}
             placeholder="Type a message, emoji, or GIF link…"
             className="flex-1 bg-transparent px-3 py-2.5 text-sm text-white placeholder-surface-500 focus:outline-none" />
         </div>
