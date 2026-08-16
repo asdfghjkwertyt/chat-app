@@ -155,8 +155,13 @@ export default function ChatList({
     }
   };
 
-  const handleChatAction = async (conv: Conversation, action: "delete-for-me" | "leave-group") => {
-    const confirmText = conv.isGroup
+  const handleChatAction = async (
+    conv: Conversation,
+    action: "delete-for-me" | "leave-group" | "delete-group"
+  ) => {
+    const confirmText = action === "delete-group"
+      ? "Delete this group for everyone? This will remove all group messages and members."
+      : conv.isGroup
       ? "Exit this group? You will no longer receive messages from it."
       : "Delete this chat for your account only?";
 
@@ -401,6 +406,20 @@ export default function ChatList({
 
                   {menuOpenId === conv.id && (
                     <div className="absolute right-8 top-10 z-30 min-w-[180px] glass-light rounded-xl border border-white/10 p-1.5 shadow-2xl backdrop-blur-md">
+                      {conv.isGroup && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMenuOpenId(null);
+                            handleChatAction(conv, "delete-group");
+                          }}
+                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm rounded-lg text-rose-200 hover:bg-rose-500/10 transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete chat
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={(event) => {
