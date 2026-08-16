@@ -57,6 +57,7 @@ export async function GET() {
             username: users.username,
             status: users.status,
             avatarUrl: users.avatarUrl,
+            role: conversationMembers.role,
           })
           .from(conversationMembers)
           .innerJoin(users, eq(conversationMembers.userId, users.id))

@@ -51,6 +51,7 @@ export async function GET(
         status: users.status,
         avatarUrl: users.avatarUrl,
         statusMessage: users.statusMessage,
+        role: conversationMembers.role,
       })
       .from(conversationMembers)
       .innerJoin(users, eq(conversationMembers.userId, users.id))
@@ -77,8 +78,61 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const { action } = await req.json().catch(() => ({}));
 
-    // Just remove user from conversation
+    const [membership] = await db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.conversationId, id),
+          eq(conversationMembers.userId, userId)
+        )
+      )
+      .limit(1);
+
+    if (!membership) {
+      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    }
+
+    const isGroupConversation: boolean = await db
+      .select({ isGroup: conversations.isGroup })
+      .from(conversations)
+      .where(eq(conversations.id, id))
+      .limit(1)
+      .then((rows: { isGroup: boolean }[]) => rows[0]?.isGroup ?? false);
+
+    const normalizedAction = action === "delete-group" ? "delete-group" : action === "leave-group" ? "leave-group" : "delete-for-me";
+
+    if (normalizedAction === "delete-group" && isGroupConversation) {
+      const [adminMembership] = await db
+        .select()
+        .from(conversationMembers)
+        .where(
+          and(
+            eq(conversationMembers.conversationId, id),
+            eq(conversationMembers.userId, userId),
+          )
+        )
+        .limit(1);
+
+      if (adminMembership?.role !== "admin") {
+        await db
+          .delete(conversationMembers)
+          .where(
+            and(
+              eq(conversationMembers.conversationId, id),
+              eq(conversationMembers.userId, userId)
+            )
+          );
+
+        return NextResponse.json({ success: true, action: "left-group" });
+      }
+
+      await db.delete(conversations).where(eq(conversations.id, id));
+      return NextResponse.json({ success: true, action: "deleted-group" });
+    }
+
     await db
       .delete(conversationMembers)
       .where(
@@ -88,7 +142,10 @@ export async function DELETE(
         )
       );
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      action: isGroupConversation ? "left-group" : "deleted-for-me",
+    });
   } catch (error) {
     console.error("Delete conversation error:", error);
     return NextResponse.json(

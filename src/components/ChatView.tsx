@@ -39,7 +39,7 @@ interface Conversation {
   displayName: string;
   displayStatus: string;
   otherMembers: { id: string; displayName: string; username: string; status: string }[];
-  members: { id: string; displayName: string; username: string; status: string }[];
+  members: { id: string; displayName: string; username: string; status: string; role?: string }[];
 }
 
 interface ChatViewProps {
@@ -64,6 +64,7 @@ export default function ChatView({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [showInfo, setShowInfo] = useState(false);
+  const [isActioning, setIsActioning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -204,6 +205,39 @@ export default function ChatView({
     } catch { /* ignore */ }
   };
 
+  const handleConversationAction = async (action: "delete-for-me" | "leave-group" | "delete-group") => {
+    const confirmMessage = action === "delete-group"
+      ? "Delete this group for everyone? This will remove all group messages and members."
+      : action === "leave-group"
+      ? "Exit this group? You will no longer receive messages from it."
+      : "Delete this chat for your account only? You will no longer see it or receive messages from it.";
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      setIsActioning(true);
+      const res = await fetch(`/api/conversations/${conversationId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update conversation");
+      }
+
+      setShowInfo(false);
+      onBack();
+      onRefreshConversations();
+    } catch (error) {
+      console.error("Conversation action failed:", error);
+      alert("This action could not be completed. Please try again.");
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
   const formatTime = (d: string) =>
     new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -225,6 +259,8 @@ export default function ChatView({
 
   const displayName = conversation?.displayName || "Chat";
   const displayStatus = conversation?.displayStatus || "";
+  const currentUserRole = conversation?.members.find((member) => member.id === user.id)?.role || "member";
+  const isCurrentUserAdmin = currentUserRole === "admin";
 
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -407,16 +443,53 @@ export default function ChatView({
                 {conversation.members.map((member) => (
                   <div key={member.id} className="flex items-center gap-2.5 py-1.5 px-2 rounded-xl hover:bg-glass-200 transition">
                     <Avatar name={member.displayName} size="sm" status={member.status} />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm text-white truncate">
                         {member.displayName}
                         {member.id === user.id && <span className="text-surface-500 text-[10px] ml-1">(you)</span>}
                       </p>
                       <p className="text-[11px] text-surface-500">@{member.username}</p>
                     </div>
+                    {member.role === "admin" && (
+                      <span className="text-[10px] uppercase tracking-wide text-accent-300">Admin</span>
+                    )}
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="border-t border-glass-border pt-4 mt-4 space-y-2">
+              {conversation.isGroup ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleConversationAction("leave-group")}
+                    disabled={isActioning}
+                    className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 px-3 py-2 text-sm font-medium hover:bg-amber-500/15 transition disabled:opacity-60"
+                  >
+                    {isActioning ? "Processing..." : "Exit group"}
+                  </button>
+                  {isCurrentUserAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => handleConversationAction("delete-group")}
+                      disabled={isActioning}
+                      className="w-full rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-200 px-3 py-2 text-sm font-medium hover:bg-rose-500/15 transition disabled:opacity-60"
+                    >
+                      Delete group
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleConversationAction("delete-for-me")}
+                  disabled={isActioning}
+                  className="w-full rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-200 px-3 py-2 text-sm font-medium hover:bg-rose-500/15 transition disabled:opacity-60"
+                >
+                  {isActioning ? "Processing..." : "Delete chat for me"}
+                </button>
+              )}
             </div>
           </div>
         )}
