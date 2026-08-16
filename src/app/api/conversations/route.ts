@@ -17,7 +17,7 @@ export async function GET() {
     }
 
     // Get conversations where user is a member
-    const memberOf = await db
+    const memberOf: { conversationId: string }[] = await db
       .select({ conversationId: conversationMembers.conversationId })
       .from(conversationMembers)
       .where(eq(conversationMembers.userId, userId));
@@ -26,7 +26,7 @@ export async function GET() {
       return NextResponse.json({ conversations: [] });
     }
 
-    const convIds = memberOf.map((m) => m.conversationId);
+    const convIds = memberOf.map((m: { conversationId: string }) => m.conversationId);
 
     const convs = await db
       .select()
@@ -36,7 +36,7 @@ export async function GET() {
 
     // Get last message and other members for each conversation
     const result = await Promise.all(
-      convs.map(async (conv) => {
+      convs.map(async (conv: { id: string; isGroup: boolean; name: string | null; createdAt: Date; updatedAt: Date }) => {
         const [lastMsg] = await db
           .select({
             content: messages.content,
@@ -62,7 +62,9 @@ export async function GET() {
           .innerJoin(users, eq(conversationMembers.userId, users.id))
           .where(eq(conversationMembers.conversationId, conv.id));
 
-        const otherMembers = members.filter((m) => m.id !== userId);
+        const otherMembers = members.filter(
+          (m: { id: string }) => m.id !== userId
+        );
 
         const unreadCount = 0; // Simplified for now
 

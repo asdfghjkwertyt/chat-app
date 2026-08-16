@@ -7,7 +7,7 @@ import ChatView from "./ChatView";
 import ContactsView from "./ContactsView";
 import CallsView from "./CallsView";
 import SettingsView from "./SettingsView";
-import { MessageCircle, Shield, Lock } from "lucide-react";
+import { MessageCircle, Shield, Lock, MoreHorizontal } from "lucide-react";
 
 interface User {
   id: string;
@@ -59,6 +59,7 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -83,6 +84,7 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
   const handleSelectConversation = (id: string) => {
     setSelectedConversation(id);
     setMobileShowChat(true);
+    setMobileSidebarOpen(false);
   };
 
   const handleBackToList = () => {
@@ -99,16 +101,34 @@ export default function AppShell({ user, onLogout, onUserUpdate }: AppShellProps
   const selectedConv = conversations.find((c) => c.id === selectedConversation);
 
   return (
-    <div className="h-screen flex overflow-hidden">
-      <Sidebar
-        activeTab={activeTab}
-        onTabChange={(tab: string) => {
-          setActiveTab(tab);
-          setMobileShowChat(false);
-        }}
-        user={user}
-        onLogout={onLogout}
-      />
+    <div className="h-screen flex overflow-hidden relative">
+      <button
+        type="button"
+        onClick={() => setMobileSidebarOpen((prev) => !prev)}
+        className="md:hidden absolute left-3 top-3 z-50 w-10 h-10 rounded-full glass flex items-center justify-center text-surface-200 shadow-lg border border-white/10"
+        aria-label="Toggle sidebar"
+      >
+        <MoreHorizontal className="w-5 h-5" />
+      </button>
+
+      <div
+        className={`
+          ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          md:translate-x-0 md:block
+          absolute md:static inset-y-0 left-0 z-40 transition-transform duration-200 ease-out
+        `}
+      >
+        <Sidebar
+          activeTab={activeTab}
+          onTabChange={(tab: string) => {
+            setActiveTab(tab);
+            setMobileShowChat(false);
+            setMobileSidebarOpen(false);
+          }}
+          user={user}
+          onLogout={onLogout}
+        />
+      </div>
 
       {/* Middle panel */}
       <div

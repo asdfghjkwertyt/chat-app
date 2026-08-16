@@ -12,7 +12,7 @@ export async function GET() {
     }
 
     // Get user's conversations
-    const memberOf = await db
+    const memberOf: { conversationId: string }[] = await db
       .select({ conversationId: conversationMembers.conversationId })
       .from(conversationMembers)
       .where(eq(conversationMembers.userId, userId));
@@ -21,7 +21,7 @@ export async function GET() {
       return NextResponse.json({ calls: [] });
     }
 
-    const convIds = memberOf.map((m) => m.conversationId);
+    const convIds = memberOf.map((m: { conversationId: string }) => m.conversationId);
 
     const calls = await db
       .select({
@@ -48,7 +48,12 @@ export async function GET() {
 
     // Add other member info for DM calls
     const enrichedCalls = await Promise.all(
-      calls.map(async (call) => {
+      calls.map(async (call: {
+        isGroup: boolean;
+        conversationId: string;
+        callerName: string | null;
+        convName: string | null;
+      }) => {
         if (!call.isGroup) {
           const members = await db
             .select({
@@ -66,7 +71,9 @@ export async function GET() {
               )
             );
 
-          const otherMember = members.find((m) => m.id !== userId);
+          const otherMember = members.find(
+            (m: { id: string; displayName: string | null }) => m.id !== userId
+          );
           return {
             ...call,
             displayName: otherMember?.displayName || call.callerName,
