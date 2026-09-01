@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "ConnectHub — Encrypted Team Chat & Calls",
   description:
     "End-to-end encrypted chat and calls for your team. No phone number needed.",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
