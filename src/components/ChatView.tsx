@@ -7,6 +7,7 @@ import {
   Paperclip, Image as ImageIcon, Film, Smile, FileText,
 } from "lucide-react";
 import Avatar from "./Avatar";
+import CallOverlay from "./CallOverlay";
 
 type MessageType = "text" | "photo" | "video" | "gif" | "sticker" | "document";
 
@@ -48,7 +49,7 @@ interface Conversation {
   isEncrypted: boolean;
   displayName: string;
   displayStatus: string;
-  otherMembers: { id: string; displayName: string; username: string; status: string }[];
+  otherMembers: { id: string; displayName: string; username: string; status: string; avatarUrl?: string | null }[];
   members: { id: string; displayName: string; username: string; status: string; role?: string }[];
 }
 
@@ -76,6 +77,8 @@ export default function ChatView({
   const [showInfo, setShowInfo] = useState(false);
   const [isActioning, setIsActioning] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [activeCall, setActiveCall] = useState<any>(null);
+  const [inCall, setInCall] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -175,6 +178,28 @@ export default function ChatView({
     const interval = setInterval(fetchMessages, 3000);
     return () => clearInterval(interval);
   }, [fetchMessages]);
+
+  // Poll for active calls
+  useEffect(() => {
+    const fetchActiveCalls = async () => {
+      try {
+        const res = await fetch(`/api/calls/active?conversationId=${conversationId}`);
+        const data = await res.json();
+        if (data.calls && data.calls.length > 0) {
+          const call = data.calls[0]; // Get first active call
+          setActiveCall(call);
+        } else {
+          setActiveCall(null);
+        }
+      } catch (error) {
+        console.error("Error fetching active calls:", error);
+      }
+    };
+
+    fetchActiveCalls();
+    const interval = setInterval(fetchActiveCalls, 2000);
+    return () => clearInterval(interval);
+  }, [conversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -465,15 +490,37 @@ export default function ChatView({
     } catch { /* ignore */ }
   };
 
-  const handleCall = async (type: string) => {
+  const handleCall = async (callType: "audio" | "video") => {
+    if (conversation?.isGroup) {
+      alert("Group calls coming soon!");
+      return;
+    }
+
     try {
-      await fetch("/api/calls", {
+      const res = await fetch("/api/calls/initiate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId, callType: type }),
+        body: JSON.stringify({ conversationId, callType }),
       });
-      alert(`${type === "video" ? "Video" : "Voice"} call started! (Demo mode — E2E encrypted)`);
-    } catch { /* ignore */ }
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Unable to initiate call");
+        return;
+      }
+
+      const data = await res.json();
+      setActiveCall({
+        id: data.call.id,
+        callType,
+        callerId: user.id,
+        status: "initiated",
+      });
+      setInCall(true);
+    } catch (error) {
+      console.error("Error initiating call:", error);
+      alert("Unable to initiate call");
+    }
   };
 
   const handleConversationAction = async (action: "delete-for-me" | "leave-group" | "delete-group") => {
@@ -624,11 +671,20 @@ export default function ChatView({
         </div>
 
         <div className="flex items-center gap-1">
-          {[{ icon: Phone, type: "voice" }, { icon: Video, type: "video" }].map(({ icon: Icon, type }) => (
-            <button key={type} onClick={() => handleCall(type)} className="w-9 h-9 rounded-xl flex items-center justify-center text-surface-400 hover:text-white glass glass-hover transition" title={`${type} call`}>
-              <Icon className="w-4 h-4" />
-            </button>
-          ))}
+          <button 
+            onClick={() => handleCall("audio")} 
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-surface-400 hover:text-white glass glass-hover transition" 
+            title="Audio call"
+          >
+            <Phone className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={() => handleCall("video")} 
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-surface-400 hover:text-white glass glass-hover transition" 
+            title="Video call"
+          >
+            <Video className="w-4 h-4" />
+          </button>
           <button onClick={() => setShowInfo(!showInfo)} className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${showInfo ? "bg-gradient-to-br from-accent-600 to-purple-600 text-white glow-accent-sm" : "text-surface-400 hover:text-white glass glass-hover"}`}>
             <Info className="w-4 h-4" />
           </button>
@@ -949,6 +1005,30 @@ export default function ChatView({
           {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         </button>
       </form>
+
+      {/* Active call overlay */}
+      {activeCall && (
+        <CallOverlay
+          callId={activeCall.id}
+          callType={activeCall.callType}
+          callerId={activeCall.callerId}
+          callerName={conversation?.isGroup ? "Group Call" : conversation?.otherMembers[0]?.displayName || "Caller"}
+          callerAvatar={conversation?.isGroup ? null : conversation?.otherMembers[0]?.avatarUrl || null}
+          isIncoming={activeCall.callerId !== user.id}
+          onAccept={() => {
+            setInCall(true);
+          }}
+          onReject={() => {
+            setActiveCall(null);
+          }}
+          onEnd={() => {
+            setActiveCall(null);
+            setInCall(false);
+          }}
+          conversationId={conversationId}
+          currentUserId={user.id}
+        />
+      )}
     </div>
   );
 }

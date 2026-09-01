@@ -22,6 +22,7 @@
     "pg": "8.20.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
+    "simple-peer": "^9.11.1",
     "uuid": "^14.0.1"
   },
   "devDependencies": {
