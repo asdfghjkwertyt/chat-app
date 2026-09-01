@@ -35,19 +35,23 @@ export default function CallOverlay({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === "audio");
   const [duration, setDuration] = useState(0);
+  const [connectionState, setConnectionState] = useState("waiting");
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const signalingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize WebRTC
+  // Initialize WebRTC with signaling
   useEffect(() => {
     if (!isActive) return;
 
     const initWebRTC = async () => {
       try {
-        // Get user media (audio and/or video)
+        setConnectionState("connecting");
+        
+        // Get user media
         const constraints = {
           audio: true,
           video: callType === "video" && !isVideoOff ? { width: 1280, height: 720 } : false,
@@ -60,54 +64,158 @@ export default function CallOverlay({
           localVideoRef.current.srcObject = stream;
         }
 
-        // Create peer connection with STUN servers
+        // Create peer connection
         const config = {
           iceServers: [
             { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+            { urls: ["stun:stun2.l.google.com:19302", "stun:stun3.l.google.com:19302"] },
+            { urls: ["stun:stun4.l.google.com:19302"] },
           ],
         };
         const peerConnection = new RTCPeerConnection(config);
         peerConnectionRef.current = peerConnection;
 
-        // Add local stream to peer connection
+        // Add local stream
         stream.getTracks().forEach((track) => {
           peerConnection.addTrack(track, stream);
         });
 
         // Handle remote stream
         peerConnection.ontrack = (event) => {
-          if (remoteVideoRef.current) {
+          console.log("Remote track received:", event.track.kind);
+          if (remoteVideoRef.current && event.streams && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
+            remoteVideoRef.current.play().catch((err) => console.error("Play error:", err));
           }
         };
 
-        // Handle ICE candidates (in a real app, send via signaling server)
-        peerConnection.onicecandidate = (event) => {
+        // Handle ICE candidates
+        peerConnection.onicecandidate = async (event) => {
           if (event.candidate) {
-            // Send ICE candidate to other peer via signaling
-            // For now, this is simplified - in production use WebSocket
-            console.log("ICE candidate:", event.candidate);
+            try {
+              await fetch("/api/calls/signaling", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  callId,
+                  type: "candidate",
+                  data: JSON.stringify(event.candidate),
+                }),
+              });
+            } catch (error) {
+              console.error("Failed to send ICE candidate:", error);
+            }
           }
         };
 
-        // Handle connection state changes
+        // Handle connection state
         peerConnection.onconnectionstatechange = () => {
           console.log("Connection state:", peerConnection.connectionState);
-          if (peerConnection.connectionState === "failed" || peerConnection.connectionState === "disconnected") {
+          if (peerConnection.connectionState === "connected") {
+            setConnectionState("connected");
+          } else if (peerConnection.connectionState === "failed" || peerConnection.connectionState === "disconnected") {
             handleEndCall();
           }
+        };
+
+        peerConnection.oniceconnectionstatechange = () => {
+          console.log("ICE connection state:", peerConnection.iceConnectionState);
         };
 
         // Start duration timer
         durationIntervalRef.current = setInterval(() => {
           setDuration((prev) => prev + 1);
         }, 1000);
+
+        // Start signaling exchange
+        let offer: RTCSessionDescriptionInit | null = null;
+
+        if (!isIncoming) {
+          // Caller: Create offer
+          const offerSdp = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: callType === "video",
+          });
+          await peerConnection.setLocalDescription(offerSdp);
+          offer = offerSdp;
+
+          // Send offer to signaling server
+          await fetch("/api/calls/signaling", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              callId,
+              type: "offer",
+              data: JSON.stringify(offer),
+            }),
+          });
+          console.log("Sent offer");
+        }
+
+        // Poll for answer/offer
+        let signalingAttempts = 0;
+        signalingIntervalRef.current = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/calls/signaling?callId=${callId}`);
+            const data = await res.json();
+
+            if (!isIncoming && data.answer && peerConnection.remoteDescription === null) {
+              // Caller receiving answer
+              const answer = JSON.parse(data.answer);
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+              console.log("Received and set answer");
+            } else if (isIncoming && data.offer && peerConnection.remoteDescription === null) {
+              // Receiver receiving offer
+              const offer = JSON.parse(data.offer);
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+              // Create and send answer
+              const answerSdp = await peerConnection.createAnswer();
+              await peerConnection.setLocalDescription(answerSdp);
+
+              await fetch("/api/calls/signaling", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  callId,
+                  type: "answer",
+                  data: JSON.stringify(answerSdp),
+                }),
+              });
+              console.log("Sent answer");
+            }
+
+            // Add ICE candidates
+            if (data.candidates && data.candidates.length > 0) {
+              for (const candidateJson of data.candidates) {
+                try {
+                  const candidate = JSON.parse(candidateJson);
+                  if (candidate && peerConnection.remoteDescription) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                  }
+                } catch (error) {
+                  console.error("Failed to add ICE candidate:", error);
+                }
+              }
+            }
+
+            signalingAttempts++;
+            if (signalingAttempts > 30) {
+              // Stop polling after 30 attempts (15 seconds)
+              if (signalingIntervalRef.current) {
+                clearInterval(signalingIntervalRef.current);
+              }
+            }
+          } catch (error) {
+            console.error("Signaling poll error:", error);
+          }
+        }, 500); // Poll every 500ms
       } catch (error) {
         console.error("WebRTC initialization error:", error);
         if (error instanceof DOMException && error.name === "NotAllowedError") {
-          alert("Please allow camera and microphone access");
+          alert("Please allow camera and microphone access to make calls");
         } else {
-          alert("Unable to access camera/microphone");
+          alert("Unable to access camera/microphone: " + (error instanceof Error ? error.message : String(error)));
         }
         onReject();
       }
@@ -116,12 +224,14 @@ export default function CallOverlay({
     initWebRTC();
 
     return () => {
-      // Cleanup
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
+      if (signalingIntervalRef.current) {
+        clearInterval(signalingIntervalRef.current);
+      }
     };
-  }, [isActive, callType, isVideoOff]);
+  }, [isActive, callType, isVideoOff, isIncoming, onReject, callId]);
 
   const handleAccept = async () => {
     setIsActive(true);
@@ -206,8 +316,8 @@ export default function CallOverlay({
     }
   };
 
-  // Incoming call screen (not yet active)
-  if (!isActive) {
+  // Only show incoming call screen for the receiver, not the caller
+  if (!isActive && isIncoming) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
         <div className="bg-gradient-to-br from-surface-900 to-surface-950 rounded-3xl p-8 max-w-sm w-full mx-4 border border-white/10 shadow-2xl">
@@ -266,6 +376,59 @@ export default function CallOverlay({
     );
   }
 
+  // Outgoing call screen (caller waiting for response)
+  if (!isActive && !isIncoming) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div className="bg-gradient-to-br from-surface-900 to-surface-950 rounded-3xl p-8 max-w-sm w-full mx-4 border border-white/10 shadow-2xl">
+          <div className="flex flex-col items-center gap-6">
+            {/* Avatar */}
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-accent-600 to-purple-600 p-0.5 animate-pulse">
+              <div className="w-full h-full rounded-full bg-surface-900 flex items-center justify-center overflow-hidden">
+                {callerAvatar ? (
+                  <img src={callerAvatar} alt={callerName} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-accent-400">
+                    {callerName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Call info */}
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white mb-2">{callerName}</h2>
+              <div className="flex items-center justify-center gap-2">
+                {callType === "video" ? (
+                  <>
+                    <Video className="w-4 h-4 text-accent-400" />
+                    <p className="text-surface-400">Calling with video…</p>
+                  </>
+                ) : (
+                  <>
+                    <Phone className="w-4 h-4 text-accent-400" />
+                    <p className="text-surface-400">Calling…</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Cancel button */}
+            <div className="flex gap-4 pt-4 w-full">
+              <button
+                onClick={handleEndCall}
+                className="flex-1 py-3 rounded-2xl bg-rose-600/20 text-rose-300 hover:bg-rose-600/30 transition font-semibold flex items-center justify-center gap-2"
+              >
+                <PhoneOff className="w-5 h-5" />
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Active call screen
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
@@ -308,6 +471,9 @@ export default function CallOverlay({
           <div className="text-center">
             <h2 className="text-3xl font-bold text-white mb-2">{callerName}</h2>
             <p className="text-surface-400 text-lg">{formatDuration(duration)}</p>
+            {connectionState !== "connected" && (
+              <p className="text-accent-300 text-sm mt-2 animate-pulse">{connectionState}…</p>
+            )}
           </div>
         </div>
       )}
