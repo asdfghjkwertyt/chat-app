@@ -234,18 +234,28 @@ export default function CallOverlay({
   }, [isActive, callType, isVideoOff, isIncoming, onReject, callId]);
 
   const handleAccept = async () => {
-    setIsActive(true);
     try {
       const res = await fetch(`/api/calls/${callId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept" }),
       });
-      if (!res.ok) throw new Error("Failed to accept call");
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to accept call" }));
+        throw new Error(error.error || `Server error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log("Call accepted:", data);
+      
+      // Only activate after successful backend acceptance
+      setIsActive(true);
       onAccept();
     } catch (error) {
       console.error("Error accepting call:", error);
-      alert("Failed to accept call");
+      alert(`Failed to accept call: ${error instanceof Error ? error.message : "Unknown error"}`);
+      onReject();
     }
   };
 
@@ -256,10 +266,16 @@ export default function CallOverlay({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
       });
-      if (!res.ok) throw new Error("Failed to reject call");
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to reject call" }));
+        throw new Error(error.error || `Server error: ${res.status}`);
+      }
+      
       onReject();
     } catch (error) {
       console.error("Error rejecting call:", error);
+      onReject();
     }
   };
 
@@ -276,11 +292,15 @@ export default function CallOverlay({
 
     // Notify backend
     try {
-      await fetch(`/api/calls/${callId}`, {
+      const res = await fetch(`/api/calls/${callId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "end" }),
       });
+      
+      if (!res.ok) {
+        console.error("Failed to end call on backend:", res.status);
+      }
     } catch (error) {
       console.error("Error ending call:", error);
     }

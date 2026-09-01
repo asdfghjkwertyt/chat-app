@@ -184,10 +184,16 @@ export default function ChatView({
     const fetchActiveCalls = async () => {
       try {
         const res = await fetch(`/api/calls/active?conversationId=${conversationId}`);
+        if (!res.ok) {
+          console.error("Error fetching active calls:", res.status);
+          return;
+        }
         const data = await res.json();
-        if (data.calls && data.calls.length > 0) {
+        if (data.calls && Array.isArray(data.calls) && data.calls.length > 0) {
           const call = data.calls[0]; // Get first active call
-          setActiveCall(call);
+          if (call.id && call.callType && call.callerId !== undefined) {
+            setActiveCall(call);
+          }
         } else {
           setActiveCall(null);
         }
@@ -504,22 +510,30 @@ export default function ChatView({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        alert(data.error || "Unable to initiate call");
+        const data = await res.json().catch(() => ({ error: "Unable to initiate call" }));
+        alert(data.error || `Error: ${res.status}`);
         return;
       }
 
       const data = await res.json();
+      
+      // Validate response structure
+      if (!data.call || !data.call.id || !data.call.callType) {
+        console.error("Invalid call response:", data);
+        alert("Invalid response from server");
+        return;
+      }
+
       setActiveCall({
         id: data.call.id,
-        callType,
+        callType: data.call.callType,
         callerId: user.id,
         status: "initiated",
       });
       setInCall(true);
     } catch (error) {
       console.error("Error initiating call:", error);
-      alert("Unable to initiate call");
+      alert(`Unable to initiate call: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   };
 
