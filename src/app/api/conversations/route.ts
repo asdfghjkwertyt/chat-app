@@ -5,6 +5,7 @@ import {
   conversationMembers,
   messages,
   users,
+  contacts,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { eq, desc, and, ne, inArray, sql } from "drizzle-orm";
@@ -119,9 +120,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // For DM, check if conversation already exists
+    // For DM (direct message), check permissions
     if (!isGroup && memberIds.length === 1) {
       const targetId = memberIds[0];
+
+      // Check if users are connected (have accepted contact status)
+      const [contactStatus] = await db
+        .select()
+        .from(contacts)
+        .where(
+          and(
+            eq(contacts.userId, userId),
+            eq(contacts.contactId, targetId)
+          )
+        )
+        .limit(1);
+
+      // If no connection exists or status is not accepted, return error
+      if (!contactStatus || contactStatus.status !== "accepted") {
+        return NextResponse.json(
+          { 
+            error: "Permission denied. You must be connected with this user to chat.",
+            code: "NOT_CONNECTED"
+          },
+          { status: 403 }
+        );
+      }
 
       // Find existing DM conversation
       const myConvs = await db

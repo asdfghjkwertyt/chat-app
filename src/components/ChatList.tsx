@@ -82,6 +82,8 @@ export default function ChatList({
   const [isGroup, setIsGroup] = useState(false);
   const [creating, setCreating] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [requestSent, setRequestSent] = useState<string | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -91,6 +93,23 @@ export default function ChatList({
     window.addEventListener("click", handleClickOutside);
     return () => window.removeEventListener("click", handleClickOutside);
   }, [menuOpenId]);
+
+  useEffect(() => {
+    const fetchPendingRequests = async () => {
+      try {
+        const res = await fetch("/api/chat-requests");
+        const data = await res.json();
+        if (data.requests) {
+          setPendingRequests(data.requests);
+        }
+      } catch (error) {
+        console.error("Error fetching requests:", error);
+      }
+    };
+    fetchPendingRequests();
+    const interval = setInterval(fetchPendingRequests, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const filteredConvs = conversations.filter((c) =>
     c.displayName?.toLowerCase().includes(search.toLowerCase())
@@ -115,12 +134,90 @@ export default function ChatList({
         body: JSON.stringify({ memberIds: [targetId], isGroup: false }),
       });
       const data = await res.json();
+      
+      if (res.status === 403 && data.code === "NOT_CONNECTED") {
+        // User not connected, send a chat request instead
+        await handleSendChatRequest(targetId);
+        return;
+      }
+      
       if (data.conversation) {
         onNewConversation(data.conversation.id);
         setShowNew(false);
         setSearchUsers([]);
+      } else {
+        alert(data.error || "Unable to start conversation");
       }
-    } catch { /* ignore */ } finally { setCreating(false); }
+    } catch (error) {
+      console.error("Error starting DM:", error);
+      alert("Unable to start conversation");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSendChatRequest = async (recipientId: string) => {
+    try {
+      const res = await fetch("/api/chat-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId }),
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setRequestSent(recipientId);
+        setTimeout(() => setRequestSent(null), 3000);
+        setShowNew(false);
+        setSearchUsers([]);
+        alert("Chat request sent! They will receive it in their inbox.");
+      } else {
+        alert(data.error || "Unable to send request");
+      }
+    } catch (error) {
+      console.error("Error sending request:", error);
+      alert("Unable to send request");
+    }
+  };
+
+  const handleAcceptRequest = async (requestId: string) => {
+    try {
+      const res = await fetch(`/api/chat-requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept" }),
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setPendingRequests(pendingRequests.filter((r) => r.id !== requestId));
+      } else {
+        alert(data.error || "Unable to accept request");
+      }
+    } catch (error) {
+      console.error("Error accepting request:", error);
+      alert("Unable to accept request");
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    try {
+      const res = await fetch(`/api/chat-requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      
+      if (res.ok) {
+        setPendingRequests(pendingRequests.filter((r) => r.id !== requestId));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Unable to reject request");
+      }
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+      alert("Unable to reject request");
+    }
   };
 
   const handleCreateGroup = async () => {
@@ -328,9 +425,14 @@ export default function ChatList({
                     <p className="text-sm font-medium text-white truncate">{u.displayName}</p>
                     <p className="text-[11px] text-surface-500">@{u.username}</p>
                   </div>
-                  {isGroup && selectedMembers.includes(u.id) && (
-                    <div className="w-5 h-5 rounded-full bg-accent-500 flex items-center justify-center"><span className="text-[10px] text-white">✓</span></div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isGroup && selectedMembers.includes(u.id) && (
+                      <div className="w-5 h-5 rounded-full bg-accent-500 flex items-center justify-center"><span className="text-[10px] text-white">✓</span></div>
+                    )}
+                    {!isGroup && requestSent === u.id && (
+                      <span className="text-[10px] text-emerald-400 font-semibold">Sent</span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
@@ -340,6 +442,40 @@ export default function ChatList({
 
       {/* List */}
       <div className="flex-1 overflow-y-auto px-2 pb-2">
+        {/* Pending Requests Section */}
+        {pendingRequests.length > 0 && (
+          <div className="mb-4">
+            <h3 className="px-2 py-2 text-xs font-semibold text-surface-400 uppercase tracking-wider">Pending Requests</h3>
+            <div className="space-y-1">
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="glass-light rounded-2xl p-3 border border-accent-500/20">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <Avatar name={req.senderName} size="md" status={req.senderStatus} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-white truncate">{req.senderName}</p>
+                      <p className="text-[11px] text-surface-500">wants to chat</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAcceptRequest(req.id)}
+                      className="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:opacity-90 transition"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => handleRejectRequest(req.id)}
+                      className="flex-1 py-1.5 text-xs font-semibold rounded-lg glass text-surface-300 hover:text-white transition"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3">
             <Loader2 className="w-5 h-5 text-accent-400 animate-spin" />
