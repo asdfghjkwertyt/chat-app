@@ -307,6 +307,34 @@ export default function ChatView({
     }
   };
 
+  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    // Detect if media data URL was inserted (by keyboard or paste)
+    const isMediaDataUrl = value.startsWith("data:image/") || value.startsWith("data:video/");
+    if (isMediaDataUrl && !sending) {
+      const { content, messageType } = classifyKeyboardMessage(value);
+      
+      // Check size before sending (estimate from data URL length)
+      const estimatedSizeBytes = Math.ceil((content.length * 3) / 4);
+      const maxSizeBytes = messageType === "video" ? 12 * 1024 * 1024 : 5 * 1024 * 1024;
+      
+      if (estimatedSizeBytes > maxSizeBytes) {
+        setNewMessage("");
+        alert(messageType === "video" ? "Video must be under 12MB." : "Image must be under 5MB.");
+        return;
+      }
+      
+      // Clear input and send media
+      setNewMessage("");
+      await handleSendMedia(messageType, content);
+      return;
+    }
+    
+    // Normal text input
+    setNewMessage(value);
+  };
+
   const handleSendMedia = async (messageType: MessageType, dataUrl: string) => {
     if (sending) return;
 
@@ -911,7 +939,7 @@ export default function ChatView({
 
         <div className="flex-1 glass-input rounded-xl flex items-center focus-within:border-accent-500/50 focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] transition-all">
           <Lock className="w-3.5 h-3.5 text-emerald-500/50 ml-3" />
-          <input ref={inputRef} type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
+          <input ref={inputRef} type="text" value={newMessage} onChange={handleInputChange}
             onPaste={(event) => void handleInputPaste(event)}
             placeholder="Type a message, emoji, or GIF link…"
             className="flex-1 bg-transparent px-3 py-2.5 text-sm text-white placeholder-surface-500 focus:outline-none" />
